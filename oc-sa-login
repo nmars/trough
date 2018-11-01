@@ -1,0 +1,52 @@
+#!/usr/bin/env bash
+
+# Used in conjunction with OKD/OpenShift client 'oc'.
+# Reads the token of the specified service account and performs 'oc login --token <token-string>'
+
+# Prerequisites:
+# oc is in your PATH
+# Your current context allows you to see the secrets in the specified namespace.
+
+# Example from Minishift environment:
+
+# $ oc whoami
+# developer
+
+# $ oc-sa-login foo:jenkins
+
+# NAMESPACE:       foo
+# SERVICE ACCOUNT: jenkins
+
+# Logged into "https://192.168.42.182:8443" as "system:serviceaccount:foo:jenkins" using the token provided.
+
+# You have access to the following projects and can switch between them with 'oc project <projectname>':
+
+#   * foo
+#     foo-bar
+#     foo-bar-baz
+
+# Using project "foo".
+
+
+if (( $# != 1 ))
+then
+    printf "%b" "Error. Please specify namespace and service account separated by a colon, i.e.: foo:jenkins\n" >&2
+    printf "%b" "\tusage: $0 NAMESPACE:SERVICEACCOUNT\n" >&2
+    exit 1
+fi
+
+if (( $(( echo $1 | tr ":" " " ) | wc -w ) != 2 ))
+then
+    printf "%b" "Error. Please specify namespace and service account separated by a colon, i.e.: foo:jenkins\n" >&2
+    printf "%b" "\tusage: $0 NAMESPACE:SERVICEACCOUNT\n" >&2
+    exit 1
+fi
+
+IFS=":" read NS SA <<< "$1"
+printf "%b" "\nNAMESPACE:       ${NS}\n" >&1
+printf "%b" "SERVICE ACCOUNT: ${SA}\n\n" >&1
+
+oc login --token $(\
+oc get sa ${SA} -n ${NS} -o=jsonpath='{.secrets[*].name}' | xargs -n 1 | grep ${SA}-token | xargs \
+oc get secret -n ${NS} -o jsonpath='{.data.token}' | head -n1 | base64 -d )
+exit $?
